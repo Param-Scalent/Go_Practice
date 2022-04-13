@@ -1,42 +1,41 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-type Product struct {
-	gorm.Model
-	Code  string
-	Price uint
+// Database Connection
+var dsn = "root:password@tcp(127.0.0.1:3306)/test_practice?charset=utf8mb4"
+var db, _ = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+type GoTestModel struct {
+	Name string
+	Year string
 }
 
 func main() {
-	// refer https://github.com/go-sql-driver/mysql#dsn-data-source-name for details
-	// dsn := "user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
-	// db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
-	db, err := gorm.Open(mysql.Open("test.db"), &gorm.Config{})
-	if err != nil {
-		panic("failed to connect database")
+	http.HandleFunc("/createstuff", GoDatabaseCreate)
+
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func GoDatabaseCreate(w http.ResponseWriter, r *http.Request) {
+	GoTestModel := GoTestModel{
+		Name: "Mike",
+		Year: "2022",
+	}
+	db.Create(&GoTestModel)
+	if err := db.Create(&GoTestModel).Error; err != nil {
+		log.Fatal(err)
 	}
 
-	// Migrate the schema
-	db.AutoMigrate(&Product{})
+	json.NewEncoder(w).Encode(GoTestModel)
 
-	// Create
-	db.Create(&Product{Code: "D42", Price: 100})
-
-	// Read
-	var product Product
-	db.First(&product, 1)                 // find product with integer primary key
-	db.First(&product, "code = ?", "D42") // find product with code D42
-
-	// Update - update product's price to 200
-	db.Model(&product).Update("Price", 200)
-	// Update - update multiple fields
-	db.Model(&product).Updates(Product{Price: 200, Code: "F42"}) // non-zero fields
-	db.Model(&product).Updates(map[string]interface{}{"Price": 200, "Code": "F42"})
-
-	// Delete - delete product
-	db.Delete(&product, 1)
+	fmt.Println("Fields Added", GoTestModel)
 }
