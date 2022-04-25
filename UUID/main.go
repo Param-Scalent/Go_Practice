@@ -5,7 +5,7 @@ import (
 )
 
 func main() {
-	uuid := uuid.new()
+	uuid := uuid.New()
 	fmt.Println(uuid)
 
 }
