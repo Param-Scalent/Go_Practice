@@ -3,7 +3,9 @@ package controller
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
+	"github.com/Param-Scalent/Go_Practice/Go-Crash-Course/REST-API-with-MUX/cache"
 	"github.com/Param-Scalent/Go_Practice/Go-Crash-Course/REST-API-with-MUX/entity"
 	"github.com/Param-Scalent/Go_Practice/Go-Crash-Course/REST-API-with-MUX/errors"
 	"github.com/Param-Scalent/Go_Practice/Go-Crash-Course/REST-API-with-MUX/service"
@@ -13,6 +15,7 @@ type controller struct{}
 
 var (
 	postService service.PostService
+	postCache   cache.PostCache
 )
 
 type PostController interface {
@@ -20,8 +23,9 @@ type PostController interface {
 	AddPost(resp http.ResponseWriter, req *http.Request)
 }
 
-func NewPostController(service service.PostService) PostController {
+func NewPostController(service service.PostService, cache cache.PostCache) PostController {
 	postService = service
+	postCache = cache
 	return &controller{}
 }
 
@@ -36,6 +40,26 @@ func (*controller) GetPosts(resp http.ResponseWriter, req *http.Request) {
 	}
 	resp.WriteHeader(http.StatusOK)
 	json.NewEncoder(resp).Encode(posts)
+}
+
+func (*controller) GetPostByID(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
+	postID := strings.Split(request.URL.Path, "/")[2]
+	var post *entity.Post = postCache.Get(postID)
+	if post == nil {
+		post, err := postService.FindByID(postID)
+		if err != nil {
+			response.WriteHeader(http.StatusNotFound)
+			json.NewEncoder(response).Encode(errors.ServiceError{Message: "No posts found!"})
+			return
+		}
+		postCache.Set(postID, post)
+		response.WriteHeader(http.StatusOK)
+		json.NewEncoder(response).Encode(post)
+	} else {
+		response.WriteHeader(http.StatusOK)
+		json.NewEncoder(response).Encode(post)
+	}
 }
 
 func (*controller) AddPost(resp http.ResponseWriter, req *http.Request) {
